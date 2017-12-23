@@ -1,0 +1,12 @@
+{
+  "plugins": [
+    ["transform-es2015-modules-commonjs"],
+    ["transform-flow-strip-types"]
+  ],
+  "env": {
+    "production": {
+      "comments": false,
+      "minified": true
+    }
+  }
+}
