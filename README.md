@@ -5,6 +5,10 @@ this is the most straightforward implementation that I could come up with.
 
 I may have misinterpreted concepts and/or rules. Can take hints from you.
 
+I modeled the engine to behave similarly to what is described in the
+[Bristol Stock Exchange](https://github.com/davecliff/BristolStockExchange).
+Haven't copied the code itself, just relied on the simple description [here](https://github.com/davecliff/BristolStockExchange/blob/master/BSEguide1.2e.pdf).
+
 ## how to install it
 
 if you just run it and not edit the code, you can install without dev dependencies like this:
@@ -23,7 +27,7 @@ requires a recent version of node.js and npm. this should suffice:
 
 (delete or rename the `prestart` script if you installed with `--production` flag)
 
-then visit port http://127.0.0.1:3000
+then visit: <http://127.0.0.1:3030>
 
 ## interacting with the stock market instance
 

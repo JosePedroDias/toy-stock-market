@@ -1,6 +1,6 @@
 // @flow
 
-const PORT = 3000;
+const PORT = 3030;
 const STEP_DELTA_MS = 1000;
 
 import express from "express";
@@ -119,7 +119,7 @@ app.get("/stats", (req: express$Request, res: express$Response) => {
   res.end();
 });
 
-if (false) {
+if (true) {
   bootstrap();
 }
 

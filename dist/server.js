@@ -16,7 +16,7 @@ var _bootstrap2 = _interopRequireDefault(_bootstrap);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-const PORT = 3000;
+const PORT = 3030;
 const STEP_DELTA_MS = 1000;
 
 const app = (0, _express2.default)();
@@ -90,7 +90,7 @@ app.get("/stats", (req, res) => {
   res.end();
 });
 
-if (false) {
+if (true) {
   (0, _bootstrap2.default)();
 }
 
