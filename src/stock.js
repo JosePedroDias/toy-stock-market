@@ -309,6 +309,11 @@ export function step(): void {
 
     do {
       retry = false;
+
+      if (stock.bids.length === 0 || stock.asks.length === 0) {
+        break;
+      }
+
       const highestBid = stock.bids[0];
       const lowestAsk = stock.asks[0];
 
@@ -339,13 +344,13 @@ export function step(): void {
         if (highestBid.quantity === trans.quantity) {
           stock.bids.splice(0, 1);
         } else {
-          highestBid -= trans.quantity;
+          highestBid.quantity -= trans.quantity;
         }
 
         if (lowestAsk.quantity === trans.quantity) {
           stock.asks.splice(0, 1);
         } else {
-          lowestAsk -= trans.quantity;
+          lowestAsk.quantity -= trans.quantity;
         }
 
         const traderFrom: Trader = TRADERS[trans.from];
