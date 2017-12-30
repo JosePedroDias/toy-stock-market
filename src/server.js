@@ -55,12 +55,16 @@ app.get(
   "/register/:name/:password/:money",
   (req: express$Request, res: express$Response) => {
     const p = req.params;
-    const token: string = registerTrader(
-      p.name,
-      p.password,
-      parseFloat(p.money)
-    );
-    res.send({ token: token });
+    try {
+      const token: string = registerTrader(
+        p.name,
+        p.password,
+        parseFloat(p.money)
+      );
+      res.send({ ok: true, token: token });
+    } catch (ex) {
+      res.send({ ok: false, error: ex.message });
+    }
     res.end();
   }
 );
@@ -69,8 +73,12 @@ app.get(
   "/login/:name/:password",
   (req: express$Request, res: express$Response) => {
     const p = req.params;
-    const token: string = loginTrader(p.name, p.password);
-    res.send({ token: token });
+    try {
+      const token: string = loginTrader(p.name, p.password);
+      res.send({ ok: true, token: token });
+    } catch (ex) {
+      res.send({ ok: false, error: ex.message });
+    }
     res.end();
   }
 );
@@ -172,6 +180,11 @@ app.get("/", (req: express$Request, res: express$Response) => {
     since: startTime.toString(),
     sinceN: startTime.valueOf()
   });
+  res.end();
+});
+
+app.all("*", (req: express$Request, res: express$Response) => {
+  res.send({ ok: false, error: "unsupported endpoint" });
   res.end();
 });
 

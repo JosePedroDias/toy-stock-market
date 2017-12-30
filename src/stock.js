@@ -9,7 +9,7 @@ export const ASK = "ask";
 
 export type ActionName = "bid" | "ask";
 
-export type SETransaction = {
+export type Transaction = {
   from: string,
   to: string,
   price: number,
@@ -18,7 +18,7 @@ export type SETransaction = {
   when: number
 };
 
-const TRANSACTIONS: Array<SETransaction> = [];
+const TRANSACTIONS: Array<Transaction> = [];
 
 export type BidAskDataLOB = {
   price: number,
@@ -160,11 +160,11 @@ export function getTraderStatus(token: string): TraderWoPass {
   };
 }
 
-function _getPrice(o: BidAskData) {
+function _getPrice(o: BidAskData): number {
   return o.price;
 }
 
-function _sigma(n: number) {
+function _sigma(n: number): number {
   return n < 0 ? -1 : n > 0 ? 1 : 0;
 }
 
@@ -294,7 +294,7 @@ export function getStockNames(): Array<string> {
 type StockMarketState = {
   stocks: StocksHash,
   traders: TradersHash,
-  transactions: Array<SETransaction>
+  transactions: Array<Transaction>
 };
 
 function _emptyArray(arr: Array<any>) {
@@ -339,16 +339,23 @@ function _updateOwns(owns: HashOfNumber, stockName, quantity) {
   }
 }
 
-export function getTransactions(): Array<SETransaction> {
+export function getTransactions(): Array<Transaction> {
   return TRANSACTIONS;
 }
 
-export function getStats() {
+export type Stats = {
+  traders: number,
+  tokens: number,
+  stocks: number,
+  queuedActions: number
+};
+
+export function getStats(): Stats {
   return {
     traders: Object.keys(TRADERS).length,
     tokens: Object.keys(VALID_TOKENS).length,
     stocks: Object.keys(STOCKS).length,
-    queued: Object.keys(STOCKS).reduce((prev, curr) => {
+    queuedActions: Object.keys(STOCKS).reduce((prev, curr) => {
       const st = STOCKS[curr];
       return st.bids.length + st.asks.length;
     }, 0)
@@ -373,7 +380,7 @@ export function step(): void {
       const lowestAsk = stock.asks[0];
 
       // at this time this is just a potential transaction
-      const trans: SETransaction = {
+      const trans: Transaction = {
         from: lowestAsk.trader,
         to: highestBid.trader,
         quantity: Math.min(lowestAsk.quantity, highestBid.quantity),

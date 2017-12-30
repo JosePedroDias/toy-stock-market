@@ -290,7 +290,7 @@ function getStats() {
     traders: Object.keys(TRADERS).length,
     tokens: Object.keys(VALID_TOKENS).length,
     stocks: Object.keys(STOCKS).length,
-    queued: Object.keys(STOCKS).reduce((prev, curr) => {
+    queuedActions: Object.keys(STOCKS).reduce((prev, curr) => {
       const st = STOCKS[curr];
       return st.bids.length + st.asks.length;
     }, 0)

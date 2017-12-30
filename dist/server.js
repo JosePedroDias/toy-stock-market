@@ -49,15 +49,23 @@ function publishToStream(o) {
 
 app.get("/register/:name/:password/:money", (req, res) => {
   const p = req.params;
-  const token = (0, _stock.registerTrader)(p.name, p.password, parseFloat(p.money));
-  res.send({ token: token });
+  try {
+    const token = (0, _stock.registerTrader)(p.name, p.password, parseFloat(p.money));
+    res.send({ ok: true, token: token });
+  } catch (ex) {
+    res.send({ ok: false, error: ex.message });
+  }
   res.end();
 });
 
 app.get("/login/:name/:password", (req, res) => {
   const p = req.params;
-  const token = (0, _stock.loginTrader)(p.name, p.password);
-  res.send({ token: token });
+  try {
+    const token = (0, _stock.loginTrader)(p.name, p.password);
+    res.send({ ok: true, token: token });
+  } catch (ex) {
+    res.send({ ok: false, error: ex.message });
+  }
   res.end();
 });
 
@@ -155,9 +163,12 @@ app.get("/", (req, res) => {
   res.end();
 });
 
-if (true) {
-  (0, _bootstrap2.default)();
-}
+app.all("*", (req, res) => {
+  res.send({ ok: false, error: "unsupported endpoint" });
+  res.end();
+});
+
+(0, _bootstrap2.default)();
 
 console.log("toy-stock-market %s running on port %s...", VERSION, PORT);
 app.listen(PORT);
