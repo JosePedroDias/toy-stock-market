@@ -60,23 +60,8 @@ All of these are simple structures in memory. Performance is not a big concern i
 The HTTP server is set up from `server.js`.
 
 To prepare an initial state populating content, edit `bootstrap.js`.
-Notice that the `bootstrap()` call is disabled in `server.js`. Enable it.
-
-Should be trivial to serialize and restore the state. The relevant content can be obtained
-via `stock.js`'s `_get_state_()`. Didn't because I have no relevant state yet to save.
-
-Even though trader's money and how many shares of each stock
-the trader has, the code isn't enforcing:
-
-* the bidding trader has enough money to buy
-* the asking trader has enough quantity to sell
-
-The purpose of tracking these is convenience and to aid bot keeping state.
-
-Kept these rules loose to simplify the bootstrap process.
-Enforcing these is trivial but would require the initial shares to be issued with more ceremony.
 
 ## further work
 
-* add a basic HTML UI to interact with the stock market -> ongoing, see [toy-stock-market-ui](#TODO)
+* add a basic HTML UI to interact with the stock market -> ongoing, see [toy-stock-market-ui](https://github.com/JosePedroDias/toy-stock-market-ui)
 * create 1 or more bots to simulate it working and possibly different strategies

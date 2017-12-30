@@ -1,5 +1,9 @@
 "use strict";
 
+var _fs = require("fs");
+
+var _fs2 = _interopRequireDefault(_fs);
+
 var _express = require("express");
 
 var _express2 = _interopRequireDefault(_express);
@@ -77,16 +81,20 @@ app.get("/bid/:token/:stockName/:price/:quantity", (req, res) => {
   const price = parseFloat(p.price);
   const quantity = parseInt(p.quantity, 10);
 
-  (0, _stock.placeBid)(p.token, p.stockName, price, quantity);
-  res.send({ ok: true });
-  res.end();
+  try {
+    (0, _stock.placeBid)(p.token, p.stockName, price, quantity);
+    res.send({ ok: true });
 
-  publishToStream({
-    kind: _stock.BID,
-    price: price,
-    quantity: quantity,
-    from: (0, _stock.getTraderNameFromToken)(p.token)
-  });
+    publishToStream({
+      kind: _stock.BID,
+      price: price,
+      quantity: quantity,
+      from: (0, _stock.getTraderNameFromToken)(p.token)
+    });
+  } catch (ex) {
+    res.send({ ok: false, error: ex.message });
+  }
+  res.end();
 });
 
 app.get("/ask/:token/:stockName/:price/:quantity", (req, res) => {
@@ -94,16 +102,20 @@ app.get("/ask/:token/:stockName/:price/:quantity", (req, res) => {
   const price = parseFloat(p.price);
   const quantity = parseInt(p.quantity, 10);
 
-  (0, _stock.placeAsk)(p.token, p.stockName, price, quantity);
-  res.send({ ok: true });
-  res.end();
+  try {
+    (0, _stock.placeAsk)(p.token, p.stockName, price, quantity);
+    res.send({ ok: true });
 
-  publishToStream({
-    kind: _stock.ASK,
-    price: price,
-    quantity: quantity,
-    from: (0, _stock.getTraderNameFromToken)(p.token)
-  });
+    publishToStream({
+      kind: _stock.ASK,
+      price: price,
+      quantity: quantity,
+      from: (0, _stock.getTraderNameFromToken)(p.token)
+    });
+  } catch (ex) {
+    res.send({ ok: false, error: ex.message });
+  }
+  res.end();
 });
 
 // OPEN ENDPOINTS
@@ -163,4 +175,21 @@ _stock.transactionsEmitter.on("transaction", trans => {
     quantity: trans.quantity,
     stock: trans.stock
   });
+});
+
+// on exit, with workaround for windows to work (https://stackoverflow.com/a/14861513)
+if (process.platform === "win32") {
+  const rl = require("readline").createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+  rl.on("SIGINT", () => {
+    process.emit("SIGINT");
+  });
+}
+
+process.on("SIGINT", () => {
+  console.log("Exiting...");
+  _fs2.default.writeFileSync("_state_.json", JSON.stringify((0, _stock._get_state_)(), null, 2));
+  process.exit();
 });

@@ -42,7 +42,8 @@ export type Stock = {
   asks: Array<BidAskData>
 };
 
-const STOCKS: { [string]: Stock } = {};
+export type StocksHash = { [string]: Stock };
+const STOCKS: StocksHash = {};
 
 type HashOfNumber = { [string]: number };
 
@@ -57,7 +58,8 @@ export type TraderWoPass = {
   owns: HashOfNumber // stockName -> quantity
 };
 
-const TRADERS: { [string]: Trader } = {};
+export type TradersHash = { [string]: Trader };
+const TRADERS: TradersHash = {};
 
 export type TokenData = {
   trader: string,
@@ -203,7 +205,7 @@ function _place(
     throw new Error("price must be a positive number");
   }
   if (!isFinite(quantity) || quantity < 0 || quantity % 0 === 0) {
-    throw new Error("quantity must be a positive integer number");
+    throw new Error("quantity must be a positive or 0 integer number"); // zero removes any previous bid/ask
   }
   const intent: BidAskData = {
     trader: traderName,
@@ -211,6 +213,18 @@ function _place(
     quantity: quantity,
     when: _now()
   };
+
+  if (intent.quantity > 0) {
+    if (
+      (kind === ASK && !trader.owns[stockName]) ||
+      trader.owns[stockName] < intent.quantity
+    ) {
+      throw new Error("trader does not have enough stock quantity");
+    }
+    if (kind === BID && trader.money < price * quantity) {
+      throw new Error("trader does not have enough money");
+    }
+  }
 
   // remove previous intent from the same trader to this stock (if one exists)
   const dataArr: Array<BidAskData> = kind === BID ? stock.bids : stock.asks;
@@ -221,9 +235,10 @@ function _place(
     dataArr.splice(idx, 1);
   }
 
-  dataArr.push(intent);
-
-  sortByPrice(dataArr, kind === BID);
+  if (intent.quantity > 0) {
+    dataArr.push(intent);
+    sortByPrice(dataArr, kind === BID);
+  }
 }
 
 export function placeBid(
@@ -276,12 +291,44 @@ export function getStockNames(): Array<string> {
   return Object.keys(STOCKS);
 }
 
-export function _get_state_() {
+type StockMarketState = {
+  stocks: StocksHash,
+  traders: TradersHash,
+  transactions: Array<SETransaction>
+};
+
+function _emptyArray(arr: Array<any>) {
+  arr.splice(0, arr.length);
+}
+
+function _emptyObject(o: { [string]: any }) {
+  for (let k: string in o) {
+    if (o.hasOwnProperty(k)) {
+      delete o[k];
+    }
+  }
+}
+
+function _clean_state_() {
+  _emptyObject(STOCKS);
+  _emptyObject(TRADERS);
+  _emptyArray(TRANSACTIONS);
+}
+
+export function _get_state_(): StockMarketState {
   return {
     stocks: STOCKS,
-    transactions: TRANSACTIONS,
-    traders: TRADERS
+    traders: TRADERS,
+    transactions: TRANSACTIONS
   };
+}
+
+export function _set_state_(st: StockMarketState) {
+  Object.assign(STOCKS, st.stocks);
+  Object.assign(TRADERS, st.traders);
+  st.transactions.forEach(tr => {
+    TRANSACTIONS.push(tr);
+  });
 }
 
 function _updateOwns(owns: HashOfNumber, stockName, quantity) {
@@ -325,29 +372,36 @@ export function step(): void {
       const highestBid = stock.bids[0];
       const lowestAsk = stock.asks[0];
 
-      // @TODO check buyer has enough money to buy
-      // @TODO check seller has enough shares to sell
+      // at this time this is just a potential transaction
+      const trans: SETransaction = {
+        from: lowestAsk.trader,
+        to: highestBid.trader,
+        quantity: Math.min(lowestAsk.quantity, highestBid.quantity),
+        price: lowestAsk.price,
+        stock: stockName,
+        when: _now()
+      };
 
-      if (highestBid.price >= lowestAsk.price) {
+      let isValid = true;
+      const traderFrom: Trader = TRADERS[trans.from];
+      const traderTo: Trader = TRADERS[trans.to];
+      const transFromOwnedQuantity: number = traderFrom.owns[stockName] || 0;
+      const transactionMoney: number = trans.price * trans.quantity;
+
+      if (true) {
+        // these should not be necessary to enforce as they're enforced on placement of bids and asks
+        if (transFromOwnedQuantity < trans.quantity) {
+          isValid = false;
+          // console.log("seller does not have enough stock");
+        } else if (traderTo.money < transactionMoney) {
+          isValid = false;
+          // console.log("buyer does not have enough money");
+        }
+      }
+
+      if (isValid && highestBid.price >= lowestAsk.price) {
         retry = true;
 
-        /*console.log(
-          "STOCK %s: %s (%s) - %s (%s)",
-          stockName,
-          highestBid.price,
-          highestBid.quantity,
-          lowestAsk.price,
-          lowestAsk.quantity
-        );*/
-
-        const trans: SETransaction = {
-          from: lowestAsk.trader,
-          to: highestBid.trader,
-          quantity: Math.min(lowestAsk.quantity, highestBid.quantity),
-          price: lowestAsk.price, // @TODO confirm the price
-          stock: stockName,
-          when: _now()
-        };
         TRANSACTIONS.push(trans);
 
         if (highestBid.quantity === trans.quantity) {
@@ -362,9 +416,6 @@ export function step(): void {
           lowestAsk.quantity -= trans.quantity;
         }
 
-        const traderFrom: Trader = TRADERS[trans.from];
-        const traderTo: Trader = TRADERS[trans.to];
-        const transactionMoney = trans.price * trans.quantity;
         traderFrom.money += transactionMoney;
         traderTo.money -= transactionMoney;
         _updateOwns(traderFrom.owns, stockName, -trans.quantity);

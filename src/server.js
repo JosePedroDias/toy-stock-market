@@ -7,6 +7,7 @@ const SSE_CONNECTIONS = [];
 // $FlowFixMe
 const VERSION = require("../package.json").version;
 
+import fs from "fs";
 import express from "express";
 import cors from "cors";
 import sse from "./sse";
@@ -26,7 +27,8 @@ import {
   BID,
   ASK,
   getTraderNameFromToken,
-  transactionsEmitter
+  transactionsEmitter,
+  _get_state_
 } from "./stock";
 
 import type { SETransaction } from "./stock";
@@ -95,16 +97,20 @@ app.get(
     const price = parseFloat(p.price);
     const quantity = parseInt(p.quantity, 10);
 
-    placeBid(p.token, p.stockName, price, quantity);
-    res.send({ ok: true });
-    res.end();
+    try {
+      placeBid(p.token, p.stockName, price, quantity);
+      res.send({ ok: true });
 
-    publishToStream({
-      kind: BID,
-      price: price,
-      quantity: quantity,
-      from: getTraderNameFromToken(p.token)
-    });
+      publishToStream({
+        kind: BID,
+        price: price,
+        quantity: quantity,
+        from: getTraderNameFromToken(p.token)
+      });
+    } catch (ex) {
+      res.send({ ok: false, error: ex.message });
+    }
+    res.end();
   }
 );
 
@@ -115,16 +121,20 @@ app.get(
     const price = parseFloat(p.price);
     const quantity = parseInt(p.quantity, 10);
 
-    placeAsk(p.token, p.stockName, price, quantity);
-    res.send({ ok: true });
-    res.end();
+    try {
+      placeAsk(p.token, p.stockName, price, quantity);
+      res.send({ ok: true });
 
-    publishToStream({
-      kind: ASK,
-      price: price,
-      quantity: quantity,
-      from: getTraderNameFromToken(p.token)
-    });
+      publishToStream({
+        kind: ASK,
+        price: price,
+        quantity: quantity,
+        from: getTraderNameFromToken(p.token)
+      });
+    } catch (ex) {
+      res.send({ ok: false, error: ex.message });
+    }
+    res.end();
   }
 );
 
@@ -165,9 +175,7 @@ app.get("/", (req: express$Request, res: express$Response) => {
   res.end();
 });
 
-if (true) {
-  bootstrap();
-}
+bootstrap();
 
 console.log("toy-stock-market %s running on port %s...", VERSION, PORT);
 app.listen(PORT);
@@ -185,4 +193,21 @@ transactionsEmitter.on("transaction", (trans: SETransaction) => {
     quantity: trans.quantity,
     stock: trans.stock
   });
+});
+
+// on exit, with workaround for windows to work (https://stackoverflow.com/a/14861513)
+if (process.platform === "win32") {
+  const rl = require("readline").createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+  rl.on("SIGINT", () => {
+    process.emit("SIGINT");
+  });
+}
+
+process.on("SIGINT", () => {
+  console.log("Exiting...");
+  fs.writeFileSync("_state_.json", JSON.stringify(_get_state_(), null, 2));
+  process.exit();
 });

@@ -15,6 +15,7 @@ exports.placeAsk = placeAsk;
 exports.getStockLOB = getStockLOB;
 exports.getStockNames = getStockNames;
 exports._get_state_ = _get_state_;
+exports._set_state_ = _set_state_;
 exports.getTransactions = getTransactions;
 exports.getStats = getStats;
 exports.step = step;
@@ -165,7 +166,7 @@ function _place(token, stockName, price, quantity, kind) {
     throw new Error("price must be a positive number");
   }
   if (!isFinite(quantity) || quantity < 0 || quantity % 0 === 0) {
-    throw new Error("quantity must be a positive integer number");
+    throw new Error("quantity must be a positive or 0 integer number"); // zero removes any previous bid/ask
   }
   const intent = {
     trader: traderName,
@@ -173,6 +174,15 @@ function _place(token, stockName, price, quantity, kind) {
     quantity: quantity,
     when: _now()
   };
+
+  if (intent.quantity > 0) {
+    if (kind === ASK && !trader.owns[stockName] || trader.owns[stockName] < intent.quantity) {
+      throw new Error("trader does not have enough stock quantity");
+    }
+    if (kind === BID && trader.money < price * quantity) {
+      throw new Error("trader does not have enough money");
+    }
+  }
 
   // remove previous intent from the same trader to this stock (if one exists)
   const dataArr = kind === BID ? stock.bids : stock.asks;
@@ -183,9 +193,10 @@ function _place(token, stockName, price, quantity, kind) {
     dataArr.splice(idx, 1);
   }
 
-  dataArr.push(intent);
-
-  sortByPrice(dataArr, kind === BID);
+  if (intent.quantity > 0) {
+    dataArr.push(intent);
+    sortByPrice(dataArr, kind === BID);
+  }
 }
 
 function placeBid(token, stockName, price, quantity) {
@@ -228,12 +239,38 @@ function getStockNames() {
   return Object.keys(STOCKS);
 }
 
+function _emptyArray(arr) {
+  arr.splice(0, arr.length);
+}
+
+function _emptyObject(o) {
+  for (let k in o) {
+    if (o.hasOwnProperty(k)) {
+      delete o[k];
+    }
+  }
+}
+
+function _clean_state_() {
+  _emptyObject(STOCKS);
+  _emptyObject(TRADERS);
+  _emptyArray(TRANSACTIONS);
+}
+
 function _get_state_() {
   return {
     stocks: STOCKS,
-    transactions: TRANSACTIONS,
-    traders: TRADERS
+    traders: TRADERS,
+    transactions: TRANSACTIONS
   };
+}
+
+function _set_state_(st) {
+  Object.assign(STOCKS, st.stocks);
+  Object.assign(TRADERS, st.traders);
+  st.transactions.forEach(tr => {
+    TRANSACTIONS.push(tr);
+  });
 }
 
 function _updateOwns(owns, stockName, quantity) {
@@ -277,29 +314,36 @@ function step() {
       const highestBid = stock.bids[0];
       const lowestAsk = stock.asks[0];
 
-      // @TODO check buyer has enough money to buy
-      // @TODO check seller has enough shares to sell
+      // at this time this is just a potential transaction
+      const trans = {
+        from: lowestAsk.trader,
+        to: highestBid.trader,
+        quantity: Math.min(lowestAsk.quantity, highestBid.quantity),
+        price: lowestAsk.price,
+        stock: stockName,
+        when: _now()
+      };
 
-      if (highestBid.price >= lowestAsk.price) {
+      let isValid = true;
+      const traderFrom = TRADERS[trans.from];
+      const traderTo = TRADERS[trans.to];
+      const transFromOwnedQuantity = traderFrom.owns[stockName] || 0;
+      const transactionMoney = trans.price * trans.quantity;
+
+      if (true) {
+        // these should not be necessary to enforce as they're enforced on placement of bids and asks
+        if (transFromOwnedQuantity < trans.quantity) {
+          isValid = false;
+          // console.log("seller does not have enough stock");
+        } else if (traderTo.money < transactionMoney) {
+          isValid = false;
+          // console.log("buyer does not have enough money");
+        }
+      }
+
+      if (isValid && highestBid.price >= lowestAsk.price) {
         retry = true;
 
-        /*console.log(
-          "STOCK %s: %s (%s) - %s (%s)",
-          stockName,
-          highestBid.price,
-          highestBid.quantity,
-          lowestAsk.price,
-          lowestAsk.quantity
-        );*/
-
-        const trans = {
-          from: lowestAsk.trader,
-          to: highestBid.trader,
-          quantity: Math.min(lowestAsk.quantity, highestBid.quantity),
-          price: lowestAsk.price, // @TODO confirm the price
-          stock: stockName,
-          when: _now()
-        };
         TRANSACTIONS.push(trans);
 
         if (highestBid.quantity === trans.quantity) {
@@ -314,9 +358,6 @@ function step() {
           lowestAsk.quantity -= trans.quantity;
         }
 
-        const traderFrom = TRADERS[trans.from];
-        const traderTo = TRADERS[trans.to];
-        const transactionMoney = trans.price * trans.quantity;
         traderFrom.money += transactionMoney;
         traderTo.money -= transactionMoney;
         _updateOwns(traderFrom.owns, stockName, -trans.quantity);
