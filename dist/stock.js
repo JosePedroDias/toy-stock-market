@@ -3,7 +3,9 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+exports.transactionsEmitter = exports.ASK = exports.BID = undefined;
 exports._now = _now;
+exports.getTraderNameFromToken = getTraderNameFromToken;
 exports.registerTrader = registerTrader;
 exports.loginTrader = loginTrader;
 exports.logoutTrader = logoutTrader;
@@ -16,7 +18,17 @@ exports._get_state_ = _get_state_;
 exports.getTransactions = getTransactions;
 exports.getStats = getStats;
 exports.step = step;
+
+var _events = require("events");
+
+var _events2 = _interopRequireDefault(_events);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
 const TOKEN_DURATION = 24 * 60 * 60 * 1000; // 24h
+
+const BID = exports.BID = "bid";
+const ASK = exports.ASK = "ask";
 
 const TRANSACTIONS = [];
 
@@ -47,7 +59,9 @@ function _generateToken(traderName, tokenDuration) {
   return token;
 }
 
-function _getTraderNameFromToken(token) {
+const transactionsEmitter = exports.transactionsEmitter = new _events2.default();
+
+function getTraderNameFromToken(token) {
   const data = VALID_TOKENS[token];
   if (!data) {
     throw new Error("token is not valid");
@@ -101,7 +115,7 @@ function logoutTrader(token) {
 }
 
 function getTraderStatus(token) {
-  const traderName = _getTraderNameFromToken(token);
+  const traderName = getTraderNameFromToken(token);
   const trader = TRADERS[traderName];
   if (!trader) {
     throw new Error("trader does not exist");
@@ -138,7 +152,7 @@ function sortByPrice(arr, isDescending) {
 */
 
 function _place(token, stockName, price, quantity, kind) {
-  const traderName = _getTraderNameFromToken(token);
+  const traderName = getTraderNameFromToken(token);
   const trader = TRADERS[traderName];
   if (!trader) {
     throw new Error("trader does not exist");
@@ -161,7 +175,7 @@ function _place(token, stockName, price, quantity, kind) {
   };
 
   // remove previous intent from the same trader to this stock (if one exists)
-  const dataArr = kind === "bid" ? stock.bids : stock.asks;
+  const dataArr = kind === BID ? stock.bids : stock.asks;
   const idx = dataArr.findIndex(bad => {
     return bad.trader === traderName;
   });
@@ -171,15 +185,15 @@ function _place(token, stockName, price, quantity, kind) {
 
   dataArr.push(intent);
 
-  sortByPrice(dataArr, kind === "bid");
+  sortByPrice(dataArr, kind === BID);
 }
 
 function placeBid(token, stockName, price, quantity) {
-  _place(token, stockName, price, quantity, "bid");
+  _place(token, stockName, price, quantity, BID);
 }
 
 function placeAsk(token, stockName, price, quantity) {
-  _place(token, stockName, price, quantity, "ask");
+  _place(token, stockName, price, quantity, ASK);
 }
 
 function _simplifyData(arr) {
@@ -283,6 +297,7 @@ function step() {
           to: highestBid.trader,
           quantity: Math.min(lowestAsk.quantity, highestBid.quantity),
           price: lowestAsk.price, // @TODO confirm the price
+          stock: stockName,
           when: _now()
         };
         TRANSACTIONS.push(trans);
@@ -306,6 +321,8 @@ function step() {
         traderTo.money -= transactionMoney;
         _updateOwns(traderFrom.owns, stockName, -trans.quantity);
         _updateOwns(traderTo.owns, stockName, trans.quantity);
+
+        transactionsEmitter.emit("transaction", trans);
 
         //console.log(trans);
         //console.log(traderFrom);

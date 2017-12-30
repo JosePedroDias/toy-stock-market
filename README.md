@@ -48,8 +48,9 @@ All endpoints accept GETs, receive argument in the path and return JSON data.
     /stock (stockName) -> lob, consisting of: array of binds, array of asks
     /transactions () -> array of transactions
     /stats () -> closing ts, nr stocks
+    / () -> version and start time
 
-    /stream () -> server sent events JSON stream (for bids, asks, transactions)
+    /stream () -> server sent events JSON stream (for bids, asks, transactions. differentiate by kind)
 
 ## some notes
 

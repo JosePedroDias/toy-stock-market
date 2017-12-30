@@ -8,6 +8,10 @@ var _cors = require("cors");
 
 var _cors2 = _interopRequireDefault(_cors);
 
+var _sse = require("./sse");
+
+var _sse2 = _interopRequireDefault(_sse);
+
 var _stock = require("./stock");
 
 var _bootstrap = require("./bootstrap");
@@ -18,10 +22,24 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 const PORT = 3030;
 const STEP_DELTA_MS = 1000;
+const SSE_CONNECTIONS = [];
+
+// $FlowFixMe
+const VERSION = require("../package.json").version;
 
 const app = (0, _express2.default)();
 
+const startTime = new Date();
+
 app.use((0, _cors2.default)());
+app.use(_sse2.default);
+
+function publishToStream(o) {
+  SSE_CONNECTIONS.forEach(res => {
+    // $FlowFixMe
+    res.sseSend(o);
+  });
+}
 
 // TRADER AUTH
 
@@ -56,16 +74,36 @@ app.get("/trader/:token", (req, res) => {
 
 app.get("/bid/:token/:stockName/:price/:quantity", (req, res) => {
   const p = req.params;
-  (0, _stock.placeBid)(p.token, p.stockName, parseFloat(p.price), parseInt(p.quantity, 10));
+  const price = parseFloat(p.price);
+  const quantity = parseInt(p.quantity, 10);
+
+  (0, _stock.placeBid)(p.token, p.stockName, price, quantity);
   res.send({ ok: true });
   res.end();
+
+  publishToStream({
+    kind: _stock.BID,
+    price: price,
+    quantity: quantity,
+    from: (0, _stock.getTraderNameFromToken)(p.token)
+  });
 });
 
 app.get("/ask/:token/:stockName/:price/:quantity", (req, res) => {
   const p = req.params;
-  (0, _stock.placeAsk)(p.token, p.stockName, parseFloat(p.price), parseInt(p.quantity, 10));
+  const price = parseFloat(p.price);
+  const quantity = parseInt(p.quantity, 10);
+
+  (0, _stock.placeAsk)(p.token, p.stockName, price, quantity);
   res.send({ ok: true });
   res.end();
+
+  publishToStream({
+    kind: _stock.ASK,
+    price: price,
+    quantity: quantity,
+    from: (0, _stock.getTraderNameFromToken)(p.token)
+  });
 });
 
 // OPEN ENDPOINTS
@@ -90,13 +128,39 @@ app.get("/stats", (req, res) => {
   res.end();
 });
 
+app.get("/stream", (req, res) => {
+  // $FlowFixMe
+  res.sseSetup();
+  SSE_CONNECTIONS.push(res);
+});
+
+app.get("/", (req, res) => {
+  res.send({
+    version: VERSION,
+    since: startTime.toString(),
+    sinceN: startTime.valueOf()
+  });
+  res.end();
+});
+
 if (true) {
   (0, _bootstrap2.default)();
 }
 
-console.log("toy-stock-market running on port %s...", PORT);
+console.log("toy-stock-market %s running on port %s...", VERSION, PORT);
 app.listen(PORT);
 
 setInterval(() => {
   (0, _stock.step)();
 }, STEP_DELTA_MS);
+
+_stock.transactionsEmitter.on("transaction", trans => {
+  publishToStream({
+    kind: "transaction",
+    from: trans.from,
+    to: trans.to,
+    price: trans.price,
+    quantity: trans.quantity,
+    stock: trans.stock
+  });
+});

@@ -4,6 +4,9 @@ const PORT = 3030;
 const STEP_DELTA_MS = 1000;
 const SSE_CONNECTIONS = [];
 
+// $FlowFixMe
+const VERSION = require("../package.json").version;
+
 import express from "express";
 import cors from "cors";
 import sse from "./sse";
@@ -23,13 +26,16 @@ import {
   BID,
   ASK,
   getTraderNameFromToken,
-  transactionsEmitter,
-  SETransaction
+  transactionsEmitter
 } from "./stock";
+
+import type { SETransaction } from "./stock";
 
 import bootstrap from "./bootstrap";
 
 const app = express();
+
+const startTime = new Date();
 
 app.use(cors());
 app.use(sse);
@@ -150,11 +156,20 @@ app.get("/stream", (req: express$Request, res: express$Response) => {
   SSE_CONNECTIONS.push(res);
 });
 
+app.get("/", (req: express$Request, res: express$Response) => {
+  res.send({
+    version: VERSION,
+    since: startTime.toString(),
+    sinceN: startTime.valueOf()
+  });
+  res.end();
+});
+
 if (true) {
   bootstrap();
 }
 
-console.log("toy-stock-market running on port %s...", PORT);
+console.log("toy-stock-market %s running on port %s...", VERSION, PORT);
 app.listen(PORT);
 
 setInterval(() => {
