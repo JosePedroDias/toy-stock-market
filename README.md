@@ -49,9 +49,12 @@ All endpoints accept GETs, receive argument in the path and return JSON data.
     /transactions () -> array of transactions
     /stats () -> closing ts, nr stocks
 
+    /stream () -> server sent events JSON stream (for bids, asks, transactions)
+
 ## some notes
 
 The stock data structures, types and core functions live in `stock.js`.
+All of these are simple structures in memory. Performance is not a big concern in this exploratory initiative.
 
 The HTTP server is set up from `server.js`.
 
@@ -74,6 +77,5 @@ Enforcing these is trivial but would require the initial shares to be issued wit
 
 ## further work
 
-* would like to write a couple of bots to test the stock market behaviour;
-* would be cool to do a simple site to offer an interface for this;
-* could offer a stream of events and group events over time to allow stock charts to be performed.
+* add a basic HTML UI to interact with the stock market -> ongoing, see [toy-stock-market-ui](#TODO)
+* create 1 or more bots to simulate it working and possibly different strategies

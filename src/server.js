@@ -2,9 +2,11 @@
 
 const PORT = 3030;
 const STEP_DELTA_MS = 1000;
+const SSE_CONNECTIONS = [];
 
 import express from "express";
 import cors from "cors";
+import sse from "./sse";
 
 import {
   registerTrader,
@@ -17,7 +19,12 @@ import {
   getStockLOB,
   getTransactions,
   getStats,
-  step
+  step,
+  BID,
+  ASK,
+  getTraderNameFromToken,
+  transactionsEmitter,
+  SETransaction
 } from "./stock";
 
 import bootstrap from "./bootstrap";
@@ -25,6 +32,14 @@ import bootstrap from "./bootstrap";
 const app = express();
 
 app.use(cors());
+app.use(sse);
+
+function publishToStream(o: any): void {
+  SSE_CONNECTIONS.forEach(res => {
+    // $FlowFixMe
+    res.sseSend(o);
+  });
+}
 
 // TRADER AUTH
 
@@ -71,14 +86,19 @@ app.get(
   "/bid/:token/:stockName/:price/:quantity",
   (req: express$Request, res: express$Response) => {
     const p = req.params;
-    placeBid(
-      p.token,
-      p.stockName,
-      parseFloat(p.price),
-      parseInt(p.quantity, 10)
-    );
+    const price = parseFloat(p.price);
+    const quantity = parseInt(p.quantity, 10);
+
+    placeBid(p.token, p.stockName, price, quantity);
     res.send({ ok: true });
     res.end();
+
+    publishToStream({
+      kind: BID,
+      price: price,
+      quantity: quantity,
+      from: getTraderNameFromToken(p.token)
+    });
   }
 );
 
@@ -86,14 +106,19 @@ app.get(
   "/ask/:token/:stockName/:price/:quantity",
   (req: express$Request, res: express$Response) => {
     const p = req.params;
-    placeAsk(
-      p.token,
-      p.stockName,
-      parseFloat(p.price),
-      parseInt(p.quantity, 10)
-    );
+    const price = parseFloat(p.price);
+    const quantity = parseInt(p.quantity, 10);
+
+    placeAsk(p.token, p.stockName, price, quantity);
     res.send({ ok: true });
     res.end();
+
+    publishToStream({
+      kind: ASK,
+      price: price,
+      quantity: quantity,
+      from: getTraderNameFromToken(p.token)
+    });
   }
 );
 
@@ -119,6 +144,12 @@ app.get("/stats", (req: express$Request, res: express$Response) => {
   res.end();
 });
 
+app.get("/stream", (req: express$Request, res: express$Response) => {
+  // $FlowFixMe
+  res.sseSetup();
+  SSE_CONNECTIONS.push(res);
+});
+
 if (true) {
   bootstrap();
 }
@@ -129,3 +160,14 @@ app.listen(PORT);
 setInterval(() => {
   step();
 }, STEP_DELTA_MS);
+
+transactionsEmitter.on("transaction", (trans: SETransaction) => {
+  publishToStream({
+    kind: "transaction",
+    from: trans.from,
+    to: trans.to,
+    price: trans.price,
+    quantity: trans.quantity,
+    stock: trans.stock
+  });
+});

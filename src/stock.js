@@ -1,6 +1,11 @@
 // @flow
 
+import EventEmitter from "events";
+
 const TOKEN_DURATION = 24 * 60 * 60 * 1000; // 24h
+
+export const BID = "bid";
+export const ASK = "ask";
 
 export type ActionName = "bid" | "ask";
 
@@ -9,6 +14,7 @@ export type SETransaction = {
   to: string,
   price: number,
   quantity: number,
+  stock: string,
   when: number
 };
 
@@ -81,7 +87,9 @@ function _generateToken(traderName: string, tokenDuration: number): string {
   return token;
 }
 
-function _getTraderNameFromToken(token: string): string {
+export const transactionsEmitter = new EventEmitter();
+
+export function getTraderNameFromToken(token: string): string {
   const data: ?TokenData = VALID_TOKENS[token];
   if (!data) {
     throw new Error("token is not valid");
@@ -139,7 +147,7 @@ export function logoutTrader(token: string) {
 }
 
 export function getTraderStatus(token: string): TraderWoPass {
-  const traderName: string = _getTraderNameFromToken(token);
+  const traderName: string = getTraderNameFromToken(token);
   const trader: ?Trader = TRADERS[traderName];
   if (!trader) {
     throw new Error("trader does not exist");
@@ -182,7 +190,7 @@ function _place(
   quantity: number,
   kind: ActionName
 ): void {
-  const traderName: string = _getTraderNameFromToken(token);
+  const traderName: string = getTraderNameFromToken(token);
   const trader: ?Trader = TRADERS[traderName];
   if (!trader) {
     throw new Error("trader does not exist");
@@ -205,7 +213,7 @@ function _place(
   };
 
   // remove previous intent from the same trader to this stock (if one exists)
-  const dataArr: Array<BidAskData> = kind === "bid" ? stock.bids : stock.asks;
+  const dataArr: Array<BidAskData> = kind === BID ? stock.bids : stock.asks;
   const idx: number = dataArr.findIndex((bad: BidAskData) => {
     return bad.trader === traderName;
   });
@@ -215,7 +223,7 @@ function _place(
 
   dataArr.push(intent);
 
-  sortByPrice(dataArr, kind === "bid");
+  sortByPrice(dataArr, kind === BID);
 }
 
 export function placeBid(
@@ -224,7 +232,7 @@ export function placeBid(
   price: number,
   quantity: number
 ) {
-  _place(token, stockName, price, quantity, "bid");
+  _place(token, stockName, price, quantity, BID);
 }
 
 export function placeAsk(
@@ -233,7 +241,7 @@ export function placeAsk(
   price: number,
   quantity: number
 ) {
-  _place(token, stockName, price, quantity, "ask");
+  _place(token, stockName, price, quantity, ASK);
 }
 
 function _simplifyData(arr: Array<BidAskData>): Array<BidAskDataLOB> {
@@ -337,6 +345,7 @@ export function step(): void {
           to: highestBid.trader,
           quantity: Math.min(lowestAsk.quantity, highestBid.quantity),
           price: lowestAsk.price, // @TODO confirm the price
+          stock: stockName,
           when: _now()
         };
         TRANSACTIONS.push(trans);
@@ -360,6 +369,8 @@ export function step(): void {
         traderTo.money -= transactionMoney;
         _updateOwns(traderFrom.owns, stockName, -trans.quantity);
         _updateOwns(traderTo.owns, stockName, trans.quantity);
+
+        transactionsEmitter.emit("transaction", trans);
 
         //console.log(trans);
         //console.log(traderFrom);
