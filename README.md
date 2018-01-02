@@ -35,6 +35,9 @@ then visit: <http://127.0.0.1:3030>
 
 The stock market server runs a simple HTPP server with CORS.
 
+The `toy-stock-market-client` NPM module exposes an abstract client to aid consume this API on either the browser or node.js.
+See [here](https://github.com/JosePedroDias/toy-stock-market-client)
+
 All endpoints accept GETs, receive argument in the path and return JSON data.
 
     /register (name / pass / money) -> token
@@ -64,4 +67,4 @@ To prepare an initial state populating content, edit `bootstrap.js`.
 ## further work
 
 * add a basic HTML UI to interact with the stock market -> ongoing, see [toy-stock-market-ui](https://github.com/JosePedroDias/toy-stock-market-ui)
-* create 1 or more bots to simulate it working and possibly different strategies
+* create 1 or more bots to simulate it working and possibly different strategies -> ongoing, see [toy-stock-market-bot](https://github.com/JosePedroDias/toy-stock-market-bot)
