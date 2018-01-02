@@ -396,6 +396,11 @@ export function step(): void {
       const transactionMoney: number = trans.price * trans.quantity;
 
       if (true) {
+        if (trans.from === trans.to) {
+          isValid = false;
+          // console.log('trader should not trade with himself')
+        }
+
         // these should not be necessary to enforce as they're enforced on placement of bids and asks
         if (transFromOwnedQuantity < trans.quantity) {
           isValid = false;
